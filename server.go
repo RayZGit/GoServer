@@ -3,23 +3,56 @@ package main
 import (
 	"fmt"
 	"net"
+	"sync"
 )
 
 type Server struct {
-	Ip   string
-	Port int
+	Ip        string
+	Port      int
+	OnlineMap map[string]*User // online user map
+	mapLock   sync.RWMutex     // lock
+	Message   chan string
 }
 
 func NewServer(ip string, port int) *Server {
 	server := &Server{
-		Ip:   ip,
-		Port: port,
+		Ip:        ip,
+		Port:      port,
+		OnlineMap: make(map[string]*User),
+		Message:   make(chan string),
 	}
 	return server
 }
 
+// listening on Message broadcast channel's goroutine.
+// once any user is online, send it to all users
+func (this *Server) ListenMessage() {
+	for {
+		msg := <-this.Message
+
+		this.mapLock.Lock()
+		for _, cli := range this.OnlineMap {
+			cli.C <- msg
+		}
+		this.mapLock.Unlock()
+	}
+}
+
 func (this *Server) Handler(conn net.Conn) {
-	fmt.Println("connect successful")
+	// user login
+	user := NewUser(conn)
+
+	this.mapLock.Lock()
+	this.OnlineMap[user.Name] = user
+	this.mapLock.Unlock()
+
+	// broadcast user online
+	this.BroadCast(user, "is online")
+}
+
+func (this *Server) BroadCast(user *User, msg string) {
+	sendMsg := "[" + user.Addr + "]" + user.Name + " : " + msg
+	this.Message <- sendMsg
 }
 
 // server start
@@ -33,6 +66,9 @@ func (this *Server) Start() {
 
 	//close listen socket
 	defer listener.Close()
+
+	// message listening
+	go this.ListenMessage()
 
 	for {
 		//accept
