@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 )
 
 type Server struct {
@@ -44,6 +45,9 @@ func (this *Server) Handler(conn net.Conn) {
 	user := NewUser(conn, this)
 	user.Online()
 
+	//listen on active users
+	isLive := make(chan bool)
+
 	// receive message from client side
 	go func() {
 		buf := make([]byte, 4096)
@@ -63,8 +67,22 @@ func (this *Server) Handler(conn net.Conn) {
 			msg := string(buf[:n-1])
 
 			user.DoMessage(msg)
+			isLive <- true
 		}
 	}()
+
+	for {
+		select {
+		case <-isLive:
+
+		case <-time.After(time.Second * 10):
+			// over time
+			user.SendMessage("Your connection has been closed!\n")
+			close(user.C)
+			conn.Close()
+			return
+		}
+	}
 }
 
 func (this *Server) BroadCast(user *User, msg string) {
