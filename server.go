@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 )
@@ -48,6 +49,28 @@ func (this *Server) Handler(conn net.Conn) {
 
 	// broadcast user online
 	this.BroadCast(user, "is online")
+
+	// receive message from client side
+	go func() {
+		buf := make([]byte, 4096)
+
+		for {
+			n, err := conn.Read(buf)
+			if n == 0 {
+				this.BroadCast(user, "is offline")
+				return
+			}
+
+			if err != nil && err != io.EOF {
+				fmt.Println("Conn Read err:", err)
+				return
+			}
+
+			msg := string(buf[:n-1])
+
+			this.BroadCast(user, msg)
+		}
+	}()
 }
 
 func (this *Server) BroadCast(user *User, msg string) {
