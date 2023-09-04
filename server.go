@@ -41,14 +41,8 @@ func (this *Server) ListenMessage() {
 
 func (this *Server) Handler(conn net.Conn) {
 	// user login
-	user := NewUser(conn)
-
-	this.mapLock.Lock()
-	this.OnlineMap[user.Name] = user
-	this.mapLock.Unlock()
-
-	// broadcast user online
-	this.BroadCast(user, "is online")
+	user := NewUser(conn, this)
+	user.Online()
 
 	// receive message from client side
 	go func() {
@@ -57,7 +51,7 @@ func (this *Server) Handler(conn net.Conn) {
 		for {
 			n, err := conn.Read(buf)
 			if n == 0 {
-				this.BroadCast(user, "is offline")
+				user.Offline()
 				return
 			}
 
