@@ -62,7 +62,7 @@ func (this *Server) Handler(conn net.Conn) {
 
 			msg := string(buf[:n-1])
 
-			this.BroadCast(user, msg)
+			user.DoMessage(msg)
 		}
 	}()
 }

@@ -46,8 +46,22 @@ func (this *User) Offline() {
 	this.server.BroadCast(this, "is offline")
 }
 
-func (this *User) DoMessage() {
+func (this *User) SendMessage(msg string) {
+	this.conn.Write([]byte(msg))
+}
 
+func (this *User) DoMessage(msg string) {
+	if msg == "who" {
+		// query online user list
+		this.server.mapLock.Lock()
+		for _, user := range this.server.OnlineMap {
+			onlineMsg := "[" + user.Addr + "]" + ":" + "Online..\n"
+			this.SendMessage(onlineMsg)
+		}
+		this.server.mapLock.Unlock()
+	} else {
+		this.server.BroadCast(this, msg)
+	}
 }
 
 func (this *User) ListenMessage() {
